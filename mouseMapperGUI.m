@@ -80,53 +80,17 @@ function setReplayButton_Callback(hObject, eventdata, handles)
 % hObject    handle to setReplayButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-[fileName, pathName] = uigetfile('*.*','Select file');
+[fileName, pathName] = uigetfile('*.*','Select file','MultiSelect','on');
 cd(pathName);
-fileID = fopen(fileName);
-holderA = textscan(fileID, '%f,%f,%f;%f');
-holderB = holderA(1);
-xPos = holderB{1};
-holderB = holderA(3);
-zPos =holderB{1};
-holderB = holderA(4);
-euler =holderB{1};
-
-pose = [xPos(1:length(euler)), zPos(1:length(euler)), euler];
-clear holderA holderB xPos zPos euler
-
-%Find Outer limits
-xMin = min(pose(:,1));
-xMax = max(pose(:,1));
-zMin = min(pose(:,2));
-zMax = max(pose(:,2));
-numPts = size(pose,1);
-%Set to origin
-handles.pose = pose -[xMin*ones(numPts,1), zMin*ones(numPts,1), zeros(numPts,1)];
-handles.xMax = xMax-xMin;
-handles.xShift =xMin;
-handles.xMin = 0;
-handles.zMax = zMax-zMin;
-handles.zShift = zMin;
-handles.zMin = 0;
-handles.replaySet = true;
-handles.numPts = numPts;
+handles.fileName = fileName;
+handles.pathName = pathName;
 replay = findobj('Tag', 'replayFileText');
-set(replay,'String',fileName);
+if iscell(handles.fileName)
+    set(replay,'String','Multiple');
+else
+    set(replay,'String',fileName);
+end
 
-%Percent Traveled
- poseDiff = diff(pose(:,1:2));
- vectDiff = zeros(length(poseDiff),1);
-for i = 1: length(poseDiff)
-   vectDiff(i) = norm(poseDiff(i,1:2)); 
-end
-intFrames = 100;
-threshold = 2;
-vectSum = zeros(floor(length(vectDiff)/intFrames),1);
-for x = 1:length(vectDiff)/intFrames
-    vectSum(x)= sum(vectDiff((x-1)*intFrames+1:(x-1)*intFrames+intFrames+1));
-end
-disp(['Percent Time Traveling Over' num2str(threshold) 'units per' num2str(intFrames) 'Frames:']);
-disp(num2str(length(find(vectSum>threshold))/length(vectSum)*100));
 guidata(hObject, handles);
 
 
@@ -226,33 +190,101 @@ function generateButton_Callback(hObject, eventdata, handles)
 % hObject    handle to generateButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-startPt = handles.startVal*handles.numPts+1;
-endPt = handles.endVal*handles.numPts;
-figure;
-hold on;
-border = 20;
-for iter = 0:length(handles.wrot)-1
-    rotMat = [cosd(handles.wrot{iter+1,2}) sind(handles.wrot{iter+1,2}); ...
-        -sind(handles.wrot{iter+1,2}) cosd(handles.wrot{iter+1,2})];
-    x = handles.wpos{iter+1,1};
-    z = handles.wpos{iter+1,3};
-    %xScale = handles.wsca{iter+1,1}*2;
-    %zScale = handles.wsca{iter+1,3}+50;
-    xScale = handles.wsca{iter+1,1};
-    zScale = handles.wsca{iter+1,3};
-    vert = [-xScale/2,-zScale/2 ;xScale/2,-zScale/2;xScale/2,zScale/2 ;-xScale/2,zScale/2];
-    rVert = rotMat*vert';
-    patch(rVert(1,:)+x-handles.xShift,rVert(2,:)+z-handles.zShift,'red');
+if iscell(handles.fileName)
+   numFiles = size(handles.fileName,2); 
+else
+   numFiles =1;
 end
+for i = 0:numFiles-1
+    if(numFiles>1) %Subplotting for multiple files
+        if mod(i,8)==0 % At maximum 8 figures per image
+           figure; 
+        end
+        subplot(2,4,mod(i,8)+1);
+        fileID = fopen(handles.fileName{i+1});
+        fN = handles.fileName{i+1};
+    else
+        fileID = fopen(handles.fileName);%Single File Case
+        fN = handles.fileName;
+        figure;
+    end
+    %get replay points
+    cd(handles.pathName);
+    holderA = textscan(fileID, '%f,%f,%f;%f');
+    holderB = holderA(1);
+    xPos = holderB{1};
+    holderB = holderA(3);
+    zPos =holderB{1};
+    holderB = holderA(4);
+    euler =holderB{1};
 
-for iter=0:size(handles.tpos,1)-1
-    viscircles([handles.tpos{iter+1,1}-handles.xShift, handles.tpos{iter+1,3}-handles.zShift],4.5);
-end
+    pose = [xPos(1:length(euler)), zPos(1:length(euler)), euler];
+    clear holderA holderB xPos zPos euler
 
-if handles.replaySet && startPt<endPt
-    plot(handles.pose(startPt:endPt,1),handles.pose(startPt:endPt,2));
+    %Find Outer limits
+    xMin = min(pose(:,1));
+    %xShift =xMin;
+    xShift = pose(1,1);
+    xMax = max(pose(:,1));
+    zMin = min(pose(:,2));
+    %zShift = zMin;
+    zShift = pose(1,2);
+    zMax = max(pose(:,2));
+    numPts = size(pose,1);
+    %Set to origin
+    pose = pose -[xShift*ones(numPts,1), zShift*ones(numPts,1), zeros(numPts,1)];
+    xMax = xMax-xShift;
+    xMin = xMin-xShift;
+    zMax = zMax-zShift;    
+    zMin = zMin-zShift;
+    
+
+    %Percent Traveled
+     poseDiff = diff(pose(:,1:2));
+     vectDiff = zeros(length(poseDiff),1);
+    for v = 1: length(poseDiff)
+       vectDiff(v) = norm(poseDiff(v,1:2)); 
+    end
+    intFrames = 100;
+    threshold = 2;
+    vectSum = zeros(floor(length(vectDiff)/intFrames),1);
+    for x = 1:length(vectDiff)/intFrames
+        vectSum(x)= sum(vectDiff((x-1)*intFrames+1:(x-1)*intFrames+intFrames+1));
+    end
+    disp(fN);
+    disp(['Percent Time Traveling Over' num2str(threshold) 'units per' num2str(intFrames) 'Frames:']);
+    disp(num2str(length(find(vectSum>threshold))/length(vectSum)*100));
+    
+    startPt = floor(handles.startVal*numPts)+1;
+    endPt = ceil(handles.endVal*numPts);
+    hold on;
+    border = 40;
+    
+    for iter = 0:length(handles.wrot)-1
+        rotMat = [cosd(handles.wrot{iter+1,2}) sind(handles.wrot{iter+1,2}); ...
+            -sind(handles.wrot{iter+1,2}) cosd(handles.wrot{iter+1,2})];
+        x = handles.wpos{iter+1,1};
+        z = handles.wpos{iter+1,3};
+        %xScale = handles.wsca{iter+1,1}*2;
+        %zScale = handles.wsca{iter+1,3}+50;
+        xScale = handles.wsca{iter+1,1};
+        zScale = handles.wsca{iter+1,3};
+        vert = [-xScale/2,-zScale/2 ;xScale/2,-zScale/2;xScale/2,zScale/2 ;-xScale/2,zScale/2];
+        rVert = rotMat*vert';
+        patch(rVert(1,:)+x-xShift,rVert(2,:)+z-zShift,'red');
+    end
+
+    for iter=0:size(handles.tpos,1)-1
+        viscircles([handles.tpos{iter+1,1}-xShift, handles.tpos{iter+1,3}-zShift],4.5);
+    end
+
+    if startPt<endPt
+        plot(pose(startPt:endPt,1),pose(startPt:endPt,2));
+    end
+    %xlim([xMin-border,xMax+border]);   %Center around trace
+    %ylim([zMin-border,zMax+border]);
+    xlim([-30,30]);
+    ylim([-20,60]);
+    axis equal;
+    title(fN);
 end
-%xlim([handles.zMin-border,handles.zMax+border]);
-%ylim([handles.xMin-border,handles.xMax+border]);
-axis equal;
