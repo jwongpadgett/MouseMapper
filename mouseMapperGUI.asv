@@ -190,7 +190,6 @@ function generateButton_Callback(hObject, eventdata, handles)
 % hObject    handle to generateButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-cd(handles.pathName);
 if iscell(handles.fileName)
    numFiles = size(handles.fileName,2); 
 else
@@ -211,7 +210,7 @@ for i = 0:numFiles-1
     end
     rewName = ['rew_',fN];
     %get replay points
-    
+    cd(handles.pathName);
     holderA = textscan(fileID, '%f,%f,%f;%f');
     holderB = holderA(1);
     xPos = holderB{1};
@@ -287,16 +286,11 @@ for i = 0:numFiles-1
     if exist(rewName, 'file')
         testSize = dir(rewName);
         if testSize.bytes
-            rewID = fopen(rewName);
-            holderA = textscan(rewID, '%f;%f');
+            holderA = textscan(fileID, '%f,%f,%f;%f');
             holderB = holderA(1);
-            rewards = holderB{1};
-            holderB = holderA(2);
-            licks =holderB{1};
-            
-            lickDiff = diff(licks);
-            ind = find(lickDiff~=0);
-            plot(pose(ind,1),pose(ind,2),'rx');
+            xPos = holderB{1};
+            holderB = holderA(3);
+            zPos =holderB{1};
         end
     end
     
