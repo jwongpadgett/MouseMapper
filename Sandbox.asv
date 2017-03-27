@@ -1,6 +1,6 @@
 %%%File to Test on %%%
 handles.pathName ='D:\Jessica\Stryker\MiceVR\replays\'
-handles.fileName= '-2017-2-9-15-47-54-1';
+handles.fileName= '-2017-2-9-16-52-30-1';
 handles.startVal =0;
 handles.endVal =1;
 
@@ -40,9 +40,11 @@ else
    numFiles =1;
 end
 for i = 0:numFiles-1
+    %%ToDo Redo multiple plotting into same plot, different colors
     if(numFiles>1) %Subplotting for multiple files
         if mod(i,8)==0 % At maximum 8 figures per image
            figure; 
+           hold on;
         end
         subplot(2,4,mod(i,8)+1);
         fileID = fopen(handles.fileName{i+1});
@@ -51,6 +53,8 @@ for i = 0:numFiles-1
         fileID = fopen(handles.fileName);%Single File Case
         fN = handles.fileName;
         figure;
+        subplot(2,1,1);
+        hold on;
     end
     rewName = ['rew_',fN];
     %get replay points
@@ -101,22 +105,9 @@ for i = 0:numFiles-1
     
     startPt = floor(handles.startVal*numPts)+1;
     endPt = ceil(handles.endVal*numPts);
-    hold on;
     border = 40;
     
-    for iter = 0:length(handles.wrot)-1
-        rotMat = [cosd(handles.wrot{iter+1,2}) sind(handles.wrot{iter+1,2}); ...
-            -sind(handles.wrot{iter+1,2}) cosd(handles.wrot{iter+1,2})];
-        x = handles.wpos{iter+1,1};
-        z = handles.wpos{iter+1,3};
-        %xScale = handles.wsca{iter+1,1}*2;
-        %zScale = handles.wsca{iter+1,3}+50;
-        xScale = handles.wsca{iter+1,1};
-        zScale = handles.wsca{iter+1,3};
-        vert = [-xScale/2,-zScale/2 ;xScale/2,-zScale/2;xScale/2,zScale/2 ;-xScale/2,zScale/2];
-        rVert = rotMat*vert';
-        patch(rVert(1,:)+x-xShift,rVert(2,:)+z-zShift,'red');
-    end
+
 end
 
 %%%Plot info%%%
@@ -132,19 +123,24 @@ for iter = 0:length(handles.wrot)-1
         vert = [-xScale/2,-zScale/2 ;xScale/2,-zScale/2;xScale/2,zScale/2 ;-xScale/2,zScale/2];
         rVert = rotMat*vert';
         patch(rVert(1,:)+x-xShift,rVert(2,:)+z-zShift,'red');
+       
 end
 
 for iter=0:size(handles.tpos,1)-1
     viscircles([handles.tpos{iter+1,1}-xShift, handles.tpos{iter+1,3}-zShift],4.5);
+    
 end
 
+color = rand(1,3);
+%Plot Trail
 if startPt<endPt
-    plot(pose(startPt:endPt-3,1),pose(startPt:endPt-3,2),'-');
+    plot(pose(startPt:endPt-3,1),pose(startPt:endPt-3,2),'-','Color',color);
 end
 
 
 %%%QuiverPlot
 %findstillTimes
+
 i=1;
 stillCounter = 1;
 stayed =0;
@@ -169,10 +165,67 @@ end
 if stillTimes(end,2)==0
    stillTimes(end,2)=length(vectDiff); 
 end
-stillTimes(:,3)=stillTimes(:,2)-stillTimes(:,1);
-stem(stillTimes(:,3));
 
-for i = 1:length(stillTimes)
-   pos = [pose(stillTimes(i,1),1:2),
-   rectangle('Position' 
+stillTimes(:,3)=stillTimes(:,2)-stillTimes(:,1);
+
+
+%stem(stillTimes(:,3));
+%plots circles at stillTimes
+%TODO: range size of circles for duration
+%plot vectors when moving at certain distances moved.
+plotDist =5;
+plotTime=50;
+
+%remove still Times less than plot threshold
+i=1;
+while i <length(stillTimes)
+    if stillTimes(i,3)<plotTime
+        stillTimes(i,:)=[];
+    else
+        i=i+1;
+    end
 end
+%quiver if starts at running
+if stillTimes(1,1)>plotTime
+    QuiverSplit(pose(1:stillTimes(1,1),:),plotTime,color);
+end
+maxStillTime = max(stillTimes(:,3));
+for i = 1:length(stillTimes)
+    if stillTimes(i,3)>plotTime
+       stillSize = stillTimes(i,3)/maxStillTime;
+       pos = [pose(stillTimes(i,1),1:2)-[stillSize/2,stillSize/2],stillSize,stillSize];
+       rectangle('Position',pos,'Curvature',[1,1],'FaceColor',color);
+    end
+   if i~=length(stillTimes)
+      %see distance from stillTimes to stillTime passes plotDist
+      %Or use plotTime if QuiverSplit is commented on time
+      if(sum(vectDiff(stillTimes(i,2):stillTimes(i+1,1)))>=plotDist)
+          QuiverSplit(pose(stillTimes(i,2):stillTimes(i+1,1),:),plotTime,color);
+      end
+   end
+end
+quiver(pose(end,1),pose(end,2),2*cosd(pose(end,3)+90),2*sind(pose(end,3)+90),'MaxHeadSize',2,'Color',color);
+
+subplot(2,1,2);
+plot(cumsum(vectDiff),'Color',color);
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%Heat Map
+% Create sample data.
+numPoints = 5000;
+x = -3 + 5 * rand(numPoints, 1);
+y = -2.5 + 5.5 * rand(numPoints, 1);
+% Now construct the histogram
+xy = [x, y];
+subplot(1,2,1);
+hist3(xy, [37, 37]); % Plots bar chart.
+subplot(1,2,2);
+counts = hist3(xy, [37, 37]);
+imshow(counts, []); % Show as image
+colormap(hot(256));
+colorbar;
+axis on;
